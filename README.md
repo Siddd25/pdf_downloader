@@ -1,16 +1,35 @@
-# pdf_management
+# 📄 PDF Management App
 
-A new Flutter project.
+A Flutter application to manage, view, search, and delete downloaded PDF files stored in a specific folder on your Android device. Built with performance and user experience in mind.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🚀 Features
 
-A few resources to get you started if this is your first Flutter project:
+- 📁 Load and display all PDFs from `/storage/emulated/0/Download/MyPDFs`
+- 🔍 Real-time search with live filtering
+- 🧹 Multi-select delete functionality with confirmation dialogs
+- 📷 Thumbnail preview of first page of each PDF (using `pdfrx`)
+- 📤 Open PDF in external apps with `open_file` (release-tested)
+- ☁️ Permissions handling using `permission_handler`
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📦 Dependencies
+
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+    flutter_lints: ^5.0.0
+  dio: ^5.4.0
+  path_provider: ^2.1.2
+  permission_handler: ^11.3.0
+  flutter_pdfview: ^1.3.1
+  intl: ^0.18.1
+  open_file: ^3.5.10
+  screenshot: ^3.0.0
+```
+
+
+  
