@@ -77,6 +77,7 @@ flutter run
 ```
 
 ## 📱 Download APK
+https://github.com/Siddd25/pdf_downloader/releases/download/V1.0.0/app-release.apk
 
 
   
