@@ -9,7 +9,6 @@ A Flutter application to download, view, search, and delete downloaded PDF files
 - 📁 Load and display all PDFs from `/storage/emulated/0/Download/MyPDFs`
 - 🔍 Real-time search with live filtering
 - 🧹 Multi-select delete functionality with confirmation dialogs
-- 📷 Thumbnail preview of first page of each PDF (using `pdfrx`)
 - 📤 Open PDF in external apps with `open_file` (release-tested)
 - ☁️ Permissions handling using `permission_handler`
 
