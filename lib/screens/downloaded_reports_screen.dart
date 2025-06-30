@@ -1,10 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../providers/pdf_file_model.dart';
 import '../services/pdfViewPage.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
-
+import 'package:provider/provider.dart';
 
 
 
@@ -17,20 +18,28 @@ class DownloadedReportsScreen extends StatefulWidget {
 }
 
 class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
-  List<FileSystemEntity> pdfFiles = [];// List to hold downloaded PDF files
-  Set<String> selectedFiles = {};
-  bool selectionMode = false;
-  bool isSearching = false;
+  //List<FileSystemEntity> pdfFiles = [];// List to hold downloaded PDF files
+ // Set<String> selectedFiles = {};
+  //bool selectionMode = false;
+  //bool isSearching = false;
   TextEditingController searchController = TextEditingController();
   FocusNode searchFocusNode = FocusNode();
-  List<FileSystemEntity> currentPdfFiles = [];
+ // List<FileSystemEntity> currentPdfFiles = [];
+
+  late UiStateModel uiState;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    uiState = Provider.of<UiStateModel>(context, listen: false);
+  }
 
 
 
 
+  Future<void> _loadDownloadedPdfs() async { //function to load downloaded PDFs
 
-  Future<void> _loadDownloadedPdfs() async {
-    //loading PDFs from the local storage
+
     final dir = Directory('/storage/emulated/0/Download/MyPDFs');
     print(dir);
 
@@ -42,10 +51,8 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
           .where((file) => file.path.endsWith('.pdf'))
           .toList();
 
-      setState(() {
-        pdfFiles = files;
-        currentPdfFiles = files; // Initialize currentPdfFiles with all PDFs
-      });
+      uiState.updatePdfFiles(files);
+      uiState.updateCurrentPdfFiles(files);// Update the model with the list of PDF files
     }
   }
 
@@ -55,7 +62,7 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Delete Selected Files"),
-        content: Text("Are you sure you want to delete ${selectedFiles.length} file(s)?"),
+        content: Text("Are you sure you want to delete ${uiState.selectedFileCount} file(s)?"),
         actions: [
           TextButton(
             child: const Text("Cancel"),
@@ -70,6 +77,7 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
     );
 
     if (confirmed == true) {
+      List<String> selectedFiles = uiState.selectedFiles;
       for (var path in selectedFiles) {
         final file = File(path);
         if (await file.exists()) {
@@ -77,9 +85,9 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
         }
       }
 
+      uiState.clearSelection();
+      uiState.disableSelectionMode();
       setState(() {
-        selectedFiles.clear(); // Clear selected files after deletion
-        selectionMode = false; // Exit selection mode
         _loadDownloadedPdfs(); // refresh list
       });
 
@@ -98,14 +106,12 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
   void searchPDFs(String query) {
     final lowerQuery = query.trim().toLowerCase();
 
-    final filtered = pdfFiles.where((file) {
+    final filtered = uiState.pdfFiles.where((file) {
       final name = file.path.split('/').last.toLowerCase();
       return name.contains(lowerQuery);
     }).toList();
 
-    setState(() {
-      currentPdfFiles = filtered; // Update the displayed list with search results
-    });
+    uiState.updateCurrentPdfFiles(filtered);
   }
 
 
@@ -115,8 +121,12 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestStoragePermissions();
+      uiState.disableSelectionMode();
+      uiState.clearSelection(); // Clear any previous selections
+      uiState.setSearchMode(false);
+      searchController.clear();
     });
-    _loadDownloadedPdfs();  // Load downloaded PDFs when the screen is initialized
+    _loadDownloadedPdfs(); // Load downloaded PDFs when the screen is initialized
   }
 
 
@@ -144,35 +154,36 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final uiState = context.watch<UiStateModel>(); // Get the current state of the PDF model
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.amber,
-        leading: selectionMode
+        leading: uiState.isSelectionMode
             ? IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
-            setState(() {
-              selectionMode = false;
-              selectedFiles.clear();
-            });
+            uiState.disableSelectionMode(); // Disable selection mode
+            uiState.clearSelection(); // Clear selected files
           },
         )
-            : isSearching
+            : uiState.isSearching
             ? IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
+            uiState.disableSelectionMode();
+            uiState.setSearchMode(false);
             setState(() {
-              isSearching = false;
               searchController.clear();
-              searchPDFs('');
+
             });
           },
         )
             : null,
 
-        title: selectionMode
-            ? Text('${selectedFiles.length} selected')
-            : isSearching  //if mode is searching, convert the AppBar to a search bar
+        title: uiState.isSelectionMode
+            ? Text('${uiState.selectedFiles.length} selected')
+            : uiState.isSearching  //if mode is searching, convert the AppBar to a search bar
             ? TextField(
 
           controller: searchController,
@@ -190,22 +201,25 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
         )
             : const Text('Downloaded PDFs'), // Default Title of the AppBar
 
-        actions: selectionMode
+        actions: uiState.isSelectionMode
             ? [
           IconButton (
             icon: const Icon(Icons.delete),
-            onPressed:  _deleteSelectedFiles,
+            onPressed:  (){
+              _deleteSelectedFiles();
+
+            },
           ),
         ]
             : [
-          if (isSearching)
+          if (uiState.isSearching)
             IconButton(
               icon: const Icon(Icons.clear),
               onPressed: () {
+                uiState.setSearchMode(false);
+                uiState.updateCurrentPdfFiles(uiState.pdfFiles);
                 setState(() {
                   searchController.clear();
-                  isSearching = false;
-                  currentPdfFiles = pdfFiles; // Reset to all PDFs
                   searchPDFs('');
                 });
               },
@@ -214,8 +228,8 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
             IconButton(
               icon: const Icon(Icons.search),
               onPressed: () {
+                uiState.setSearchMode(true);
                 setState(() {
-                  isSearching = true;
                   searchFocusNode.requestFocus();
                 });
               },
@@ -223,12 +237,12 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
         ],
       ),
 
-      body: currentPdfFiles.isEmpty
+      body: uiState.currentPdfFiles.isEmpty
           ? const Center(child: Text('No PDFs found.')) // If no PDFs are found, display a message
           : ListView.builder( // Build the list of downloaded PDFs
-        itemCount: currentPdfFiles.length,
+          itemCount: uiState.currentPdfFiles.length,
           itemBuilder: (context, index) {
-            final file = currentPdfFiles[index];
+            final file = uiState.currentPdfFiles[index];
 
             return FutureBuilder<FileStat>(
               future: FileStat.stat(file.path),
@@ -244,8 +258,9 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
                 final formattedDate = DateFormat.yMMMd().add_jm().format(timestamp); // Format the date and time
 
                 return ListTile(
-                  selected: selectedFiles.contains(file.path), // Highlight selected files
-                  tileColor: selectedFiles.contains(file.path)
+                  //selected: selectedFiles.contains(file.path),
+                  selected: uiState.isFileSelected(file.path),
+                  tileColor: uiState.isFileSelected(file.path)
                       ? Colors.blueAccent
                       : null,
                   leading: const Icon(Icons.picture_as_pdf),
@@ -257,33 +272,26 @@ class _DownloadedReportsScreenState extends State<DownloadedReportsScreen> {
                   ),
                   isThreeLine: true,
                   onTap: (){
-                    if (selectionMode) {
-                      setState(() {
-                        if (selectedFiles.contains(file.path)) {
-                          selectedFiles.remove(file.path);
-                          if( selectedFiles.isEmpty) {
-                            setState(() {
-                            selectionMode = false;
-                              });
-                              }
-
-                        } else {
-                          selectedFiles.add(file.path);
-                        }
+                    if (uiState.isSelectionMode) {
+                      if (uiState.isFileSelected(file.path)) {
+                        uiState.deselectFile(file.path);
+                      } else {
+                        uiState.selectFile(file.path);
                       }
-                      );
+
+                      if (uiState.selectedFileCount == 0) {
+                        uiState.disableSelectionMode();
+                      }
                     }
-                       else {
-                      openPdfWithSystemApp(file.path); // Open the PDF file using the system PDF app
+                    else {
+                      openPdfWithSystemApp(file.path);
                     }
                   },
                   onLongPress:() {
+                    uiState.enableSelectionMode();
+                    uiState.selectFile(file.path);
 
-                setState(() {
-                selectionMode = true;// Enable selection mode on long press
-                selectedFiles.add(file.path);
-                });
-                },
+                  },
                 );
               },
             );
